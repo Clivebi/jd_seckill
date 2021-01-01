@@ -17,12 +17,12 @@ class Timer(object):
 
         self.diff_time = self.local_jd_time_diff()
     
-    def check_timeout(self):
-        """
-        判断是否超时
-        :return: True or false
-        """
-        return (self.local_time-self.buy_time_ms)>1000*60*2
+    def is_need_retry(self):
+        t = self.local_time()
+        if t < self.buy_time_ms:
+           return True
+        else: 
+           return t-self.buy_time_ms < 1000*60*2
 
     def jd_time(self):
         """

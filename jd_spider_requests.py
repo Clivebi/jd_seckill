@@ -358,10 +358,10 @@ class JdSeckill(object):
         """
         抢购
         """
-        while self.timers.check_timeout():
+        while self.timers.is_need_retry():
             try:
                 self.request_seckill_url()
-                while self.timers.check_timeout():
+                while self.timers.is_need_retry():
                     self.request_seckill_checkout_page()
                     self.submit_seckill_order()
             except Exception as e:
