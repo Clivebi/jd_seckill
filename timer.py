@@ -16,6 +16,13 @@ class Timer(object):
         self.sleep_interval = sleep_interval
 
         self.diff_time = self.local_jd_time_diff()
+    
+    def check_timeout(self):
+        """
+        判断是否超时
+        :return: True or false
+        """
+        return (self.local_time-self.buy_time_ms)>1000*60*2
 
     def jd_time(self):
         """

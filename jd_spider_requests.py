@@ -330,12 +330,14 @@ class JdSeckill(object):
         """
         self._seckill()
 
+
     @check_login
     def seckill_by_proc_pool(self, work_count=5):
         """
         多进程进行抢购
         work_count：进程数量
         """
+        self.timers.start()
         with ProcessPoolExecutor(work_count) as pool:
             for i in range(work_count):
                 pool.submit(self.seckill)
@@ -356,10 +358,10 @@ class JdSeckill(object):
         """
         抢购
         """
-        while True:
+        while self.timers.check_timeout():
             try:
                 self.request_seckill_url()
-                while True:
+                while self.timers.check_timeout():
                     self.request_seckill_checkout_page()
                     self.submit_seckill_order()
             except Exception as e:
@@ -382,7 +384,6 @@ class JdSeckill(object):
         resp = self.session.get(url=url, params=payload, headers=headers)
         resp_json = parse_json(resp.text)
         reserve_url = resp_json.get('url')
-        self.timers.start()
         while True:
             try:
                 self.session.get(url='https:' + reserve_url)
