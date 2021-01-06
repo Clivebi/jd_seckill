@@ -140,10 +140,10 @@ class QrLogin:
         }
         try:
             resp = self.session.get(url=url, params=payload, allow_redirects=False)
-            if resp.status_code == requests.codes.OK:
+            if resp.status_code == 200:
                 return True
-        except Exception as e:
-            logger.error("验证cookies是否有效发生异常", e)
+        except Exception:
+            logger.error("验证cookies是否有效发生异常",exc_info = True)
         return False
 
     def _get_login_page(self):
@@ -303,7 +303,6 @@ class JdSeckill(object):
             self.spider_session.save_cookies_to_local(self.nick_name)
         else:
             raise SKException("二维码登录失败！")
-
     def check_login(func):
         """
         用户登陆态校验装饰器。若用户未登陆，则调用扫码登陆
@@ -332,7 +331,7 @@ class JdSeckill(object):
 
 
     @check_login
-    def seckill_by_proc_pool(self, work_count=5):
+    def seckill_by_proc_pool(self, work_count=3):
         """
         多进程进行抢购
         work_count：进程数量
@@ -350,8 +349,8 @@ class JdSeckill(object):
             try:
                 self.make_reserve()
                 break
-            except Exception as e:
-                logger.info('预约发生异常!', e)
+            except Exception:
+                logger.exception("预约发生异常",exc_info=True)
             wait_some_time()
 
     def _seckill(self):
@@ -364,9 +363,9 @@ class JdSeckill(object):
                 while self.timers.is_need_retry():
                     self.request_seckill_checkout_page()
                     self.submit_seckill_order()
-            except Exception as e:
-                logger.info('抢购发生异常，稍后继续执行！', e)
-            wait_some_time()
+            except Exception:
+                logger.exception("抢购发生异常，稍后继续执行",exc_info=True)
+            time.sleep(80/1000) #80ms
 
     def make_reserve(self):
         """商品预约"""
@@ -392,8 +391,8 @@ class JdSeckill(object):
                     success_message = "预约成功，已获得抢购资格 / 您已成功预约过了，无需重复预约"
                     send_wechat(success_message)
                 break
-            except Exception as e:
-                logger.error('预约失败正在重试...')
+            except Exception:
+                logger.exception("预约失败正在重试...",exc_info=True)
 
     def get_username(self):
         """获取用户信息"""
@@ -449,6 +448,7 @@ class JdSeckill(object):
         }
         while True:
             resp = self.session.get(url=url, headers=headers, params=payload)
+            logger.info(resp.text)
             resp_json = parse_json(resp.text)
             if resp_json.get('url'):
                 # https://divide.jd.com/user_routing?skuId=8654289&sn=c3f4ececd8461f0e4d7267e96a91e0e0&from=pc
@@ -467,7 +467,6 @@ class JdSeckill(object):
         """访问商品的抢购链接（用于设置cookie等"""
         logger.info('用户:{}'.format(self.get_username()))
         logger.info('商品名称:{}'.format(self.get_sku_title()))
-        self.timers.start()
         self.seckill_url[self.sku_id] = self.get_seckill_url()
         logger.info('访问商品的抢购连接...')
         headers = {
@@ -513,7 +512,7 @@ class JdSeckill(object):
             'Host': 'marathon.jd.com',
         }
         resp = self.session.post(url=url, data=data, headers=headers)
-
+        logger.info(resp.text)
         resp_json = None
         try:
             resp_json = parse_json(resp.text)
@@ -528,7 +527,8 @@ class JdSeckill(object):
         """
         logger.info('生成提交抢购订单所需参数...')
         # 获取用户秒杀初始化信息
-        self.seckill_init_info[self.sku_id] = self._get_seckill_init_info()
+        if self.sku_id not in self.seckill_init_info:
+           self.seckill_init_info[self.sku_id] = self._get_seckill_init_info()
         init_info = self.seckill_init_info.get(self.sku_id)
         default_address = init_info['addressList'][0]  # 默认地址dict
         invoice_info = init_info.get('invoiceInfo', {})  # 默认发票信息dict, 有可能不返回
