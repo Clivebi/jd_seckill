@@ -327,6 +327,7 @@ class JdSeckill(object):
         """
         抢购
         """
+        self.timers.start()
         self._seckill()
 
 
@@ -336,7 +337,6 @@ class JdSeckill(object):
         多进程进行抢购
         work_count：进程数量
         """
-        self.timers.start()
         with ProcessPoolExecutor(work_count) as pool:
             for i in range(work_count):
                 pool.submit(self.seckill)
