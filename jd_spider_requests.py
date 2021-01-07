@@ -38,6 +38,7 @@ class SpiderSession:
     def _init_session(self):
         session = requests.session()
         session.headers = self.get_headers()
+        session.max_redirects = 10
         return session
 
     def get_headers(self):
@@ -286,6 +287,7 @@ class JdSeckill(object):
         self.session = self.spider_session.get_session()
         self.user_agent = self.spider_session.user_agent
         self.nick_name = None
+        self.exit_flag = False
 
     def login_by_qrcode(self):
         """
@@ -312,6 +314,11 @@ class JdSeckill(object):
             if not self.qrlogin.is_login:
                 logger.info("{0} 需登陆后调用，开始扫码登陆".format(func.__name__))
                 self.login_by_qrcode()
+            else:
+                self.nick_name = self.get_username()
+            address = global_config.getAddressObject(self.nick_name)
+            if not address:
+                self.seckill_init_info[self.sku_id] = address
             return func(self, *args, **kwargs)
         return new_func
 
@@ -329,7 +336,19 @@ class JdSeckill(object):
         """
         self.timers.start()
         self._seckill()
-
+    
+    @check_login
+    def updateAddressObject(self):
+        """
+        抢购结束后，更新一次地址对象，防止token有变化
+        """
+        while True:
+            try:
+                self._get_seckill_init_info()
+                break
+            except Exception:
+                logger.exception("更新地址对象发生异常",exc_info=True)
+            time.sleep(3)
 
     @check_login
     def seckill_by_proc_pool(self, work_count=3):
@@ -353,16 +372,21 @@ class JdSeckill(object):
                 logger.exception("预约发生异常",exc_info=True)
             wait_some_time()
 
+    def _is_need_retry(self):
+        if self.exit_flag:
+            return False
+        return self.timers.is_need_retry()
+
     def _seckill(self):
         """
         抢购
         """
-        while self.timers.is_need_retry():
+        while self._is_need_retry():
             try:
                 self.request_seckill_url()
-                while self.timers.is_need_retry():
+                while self._is_need_retry():
                     self.request_seckill_checkout_page()
-                    self.submit_seckill_order()
+                    self.exit_flag = self.submit_seckill_order()
             except Exception:
                 logger.exception("抢购发生异常，稍后继续执行",exc_info=True)
             time.sleep(80/1000) #80ms
@@ -518,7 +542,7 @@ class JdSeckill(object):
             resp_json = parse_json(resp.text)
         except Exception:
             raise SKException('抢购失败，返回信息:{}'.format(resp.text[0: 128]))
-
+        global_config.setAddressObject(self.nick_name,resp.text)
         return resp_json
 
     def _get_seckill_order_data(self):

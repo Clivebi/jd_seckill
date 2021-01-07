@@ -19,3 +19,5 @@ if __name__ == '__main__':
     jd_seckill = JdSeckill()
     jd_seckill.reserve()
     jd_seckill.seckill_by_proc_pool()
+    ##抢购完成后，更新一次地址，以便明天使用
+    jd_seckill.updateAddressObject()
