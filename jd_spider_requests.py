@@ -305,47 +305,40 @@ class JdSeckill(object):
             self.spider_session.save_cookies_to_local(self.nick_name)
         else:
             raise SKException("二维码登录失败！")
-    def check_login(func):
-        """
-        用户登陆态校验装饰器。若用户未登陆，则调用扫码登陆
-        """
-        @functools.wraps(func)
-        def new_func(self, *args, **kwargs):
-            if not self.qrlogin.is_login:
-                logger.info("{0} 需登陆后调用，开始扫码登陆".format(func.__name__))
-                self.login_by_qrcode()
-            else:
-                self.nick_name = self.get_username()
-            ###
-            address = global_config.getAddressObject(self.nick_name)
-            if address is None:
-                logger.info("从缓存加载地址信息失败....")
-            else:
-                self.seckill_init_info[self.sku_id] = address
-                logger.info("从缓存加载地址信息成功....")
-            return func(self, *args, **kwargs)
-        return new_func
 
-    @check_login
+    def check_login(self):
+        if not self.qrlogin.is_login:
+            logger.info("需要重新登录...")
+            self.login_by_qrcode()
+        else:
+            self.nick_name = self.get_username()
+        address = global_config.getAddressObject(self.nick_name)
+        if address is None:
+            logger.info("从缓存加载地址信息失败....")
+        else:
+            self.seckill_init_info[self.sku_id] = address
+            logger.info("从缓存加载地址信息成功....")
+    
     def reserve(self):
         """
         预约
         """
+        self.check_login()
         self._reserve()
 
-    @check_login
     def seckill(self):
         """
         抢购
         """
+        self.check_login()
         self.timers.start()
         self._seckill()
-    
-    @check_login
+
     def updateAddressObject(self):
         """
         抢购结束后，更新一次地址对象，防止token有变化
         """
+        self.check_login()
         while True:
             try:
                 self._get_seckill_init_info()
@@ -354,14 +347,14 @@ class JdSeckill(object):
                 logger.exception("更新地址对象发生异常",exc_info=True)
             time.sleep(3)
 
-    @check_login
     def seckill_by_proc_pool(self, work_count=3):
         """
         多进程进行抢购
         work_count：进程数量
         """
+        self.check_login()
         with ProcessPoolExecutor(work_count) as pool:
-            for i in range(work_count):
+            for _ in range(work_count):
                 pool.submit(self.seckill)
 
     def _reserve(self):
