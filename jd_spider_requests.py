@@ -316,9 +316,13 @@ class JdSeckill(object):
                 self.login_by_qrcode()
             else:
                 self.nick_name = self.get_username()
+            ###
             address = global_config.getAddressObject(self.nick_name)
-            if not address:
+            if address is None:
+                logger.info("从缓存加载地址信息失败....")
+            else:
                 self.seckill_init_info[self.sku_id] = address
+                logger.info("从缓存加载地址信息成功....")
             return func(self, *args, **kwargs)
         return new_func
 
@@ -393,6 +397,7 @@ class JdSeckill(object):
 
     def make_reserve(self):
         """商品预约"""
+        logger.info('用户:{}'.format(self.nick_name))
         logger.info('商品名称:{}'.format(self.get_sku_title()))
         url = 'https://yushou.jd.com/youshouinfo.action?'
         payload = {
@@ -489,8 +494,6 @@ class JdSeckill(object):
 
     def request_seckill_url(self):
         """访问商品的抢购链接（用于设置cookie等"""
-        logger.info('用户:{}'.format(self.get_username()))
-        logger.info('商品名称:{}'.format(self.get_sku_title()))
         self.seckill_url[self.sku_id] = self.get_seckill_url()
         logger.info('访问商品的抢购连接...')
         headers = {
